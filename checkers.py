@@ -1,6 +1,6 @@
 import dns.resolver
 from colorama import Fore, Style
-from parsers import parse_spf_record
+from parsers import parse_spf_record, parse_dmarc_record, parse_dkim_record
 
 def check_spf(domain):
     try:
@@ -28,27 +28,40 @@ def check_dmarc(domain):
         answers = dns.resolver.resolve(dmarc_domain, 'TXT')
         for rdata in answers:
             if 'v=DMARC1' in str(rdata):
-                print(f"DMARC record for {domain}: {rdata}")
+                print(f"{Style.BRIGHT}{Fore.GREEN}[+] DMARC record for {domain} found!{Style.RESET_ALL}")
+                print(f"    dmarc: {rdata}\n")
+
+                dmarc_record = str(rdata).strip('"')
+                parse_dmarc_record(dmarc_record)
                 return
-        print(f"No DMARC record found for {domain}")
+        print(f"{Style.BRIGHT}{Fore.RED}[!] No DMARC record found for {domain}{Style.RESET_ALL}")
     except dns.resolver.NoAnswer:
-        print(f"No DMARC record found for {domain}")
+        print(f"{Style.BRIGHT}{Fore.RED}[!] No DMARC record found for {domain}{Style.RESET_ALL}")
     except dns.resolver.NXDOMAIN:
-        print(f"Domain {domain} does not exist.")
+        print(f"{Style.BRIGHT}{Fore.RED}[!] Domain {domain} does not exist.{Style.RESET_ALL}")
     except Exception as e:
-        print(f"An error occurred while retrieving DMARC: {e}")
+        print(f"{Style.BRIGHT}{Fore.RED}[!] An error occurred while retrieving DMARC: {e}{Style.RESET_ALL}")
 
 def check_dkim(domain, selector):
     try:
+        if selector is None:
+            print(f"{Style.BRIGHT}{Fore.YELLOW}[!] No DKIM selector provided. Proceeding with default selector 'default'{Style.RESET_ALL}")
+            selector = 'default'
+    
         dkim_domain = f"{selector}._domainkey.{domain}"
         answers = dns.resolver.resolve(dkim_domain, 'TXT')
         for rdata in answers:
-            print(f"DKIM record for {domain} with selector {selector}: {rdata}")
-            return
-        print(f"No DKIM record found for {domain}")
+            record = str(rdata).strip('"')
+            if 'v=DKIM1' in record:
+                print(f"{Style.BRIGHT}{Fore.GREEN}[+] DKIM record for {domain} found with selector '{selector}'!{Style.RESET_ALL}")
+                print(f"    dkim: {record}\n")
+
+                parse_dkim_record(record)
+                return
+        print(f"{Style.BRIGHT}{Fore.RED}[!] No DKIM record found for {domain} with selector '{selector}'{Style.RESET_ALL}")
     except dns.resolver.NoAnswer:
-        print(f"No DKIM record found for {domain}")
+        print(f"{Style.BRIGHT}{Fore.RED}[!] No DKIM record found for {domain} with selector '{selector}'{Style.RESET_ALL}")
     except dns.resolver.NXDOMAIN:
-        print(f"Domain {domain} does not exist.")
+        print(f"{Style.BRIGHT}{Fore.RED}[!] No DKIM record found for {domain} with selector '{selector}'{Style.RESET_ALL}")
     except Exception as e:
-        print(f"An error occurred while retrieving DKIM: {e}")
+        print(f"{Style.BRIGHT}{Fore.RED}[!] An error occurred while retrieving DKIM: {e}{Style.RESET_ALL}")
