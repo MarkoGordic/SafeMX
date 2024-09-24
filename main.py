@@ -2,14 +2,9 @@ import argparse
 import sys
 from checkers import check_spf, check_dmarc, check_dkim
 from colorama import Fore, Style, init
+import json
 
 init(autoreset=True)
-
-class CustomArgumentParser(argparse.ArgumentParser):
-    def error(self, message):
-        sys.stderr.write(f"Error: {message}\n")
-        self.print_help()
-        sys.exit(2)
 
 def display_banner():
     banner = r"""
@@ -26,33 +21,51 @@ def display_banner():
 
 def main():
     parser = argparse.ArgumentParser(
-        description=Fore.GREEN + "Check domain's SPF, DMARC, and DKIM records." + Style.RESET_ALL,
-        usage=Fore.YELLOW + 'main.py [-h] [-spf] [-dmarc] [-dkim] [-selector SELECTOR] domain' + Style.RESET_ALL
+        description="Check domain's SPF, DMARC, and DKIM records.",
+        usage='main.py [-h] [-spf] [-dmarc] [-dkim] [-selector SELECTOR] [--output OUTPUT] domain'
     )
-    
-    parser.add_argument('domain', help=Fore.CYAN + "The domain to check" + Style.RESET_ALL)
-    parser.add_argument('-spf', action='store_true', help=Fore.MAGENTA + "Check SPF record" + Style.RESET_ALL)
-    parser.add_argument('-dmarc', action='store_true', help=Fore.MAGENTA + "Check DMARC record" + Style.RESET_ALL)
-    parser.add_argument('-dkim', action='store_true', help=Fore.MAGENTA + "Check DKIM record" + Style.RESET_ALL)
-    parser.add_argument('-selector', type=str, help=Fore.CYAN + "DKIM selector for D" + Style.RESET_ALL)
-    
+
+    parser.add_argument('domain', help="The domain to check")
+    parser.add_argument('-spf', action='store_true', help="Check SPF record")
+    parser.add_argument('-dmarc', action='store_true', help="Check DMARC record")
+    parser.add_argument('-dkim', action='store_true', help="Check DKIM record")
+    parser.add_argument('-selector', type=str, help="DKIM selector for DKIM check")
+    parser.add_argument('--output', choices=['console', 'json'], default='console', help='Output format')
+    parser.add_argument('--outfile', type=str, help="Output file for JSON results", default='output.json')
+
     args = parser.parse_args()
-    
+
     display_banner()
 
     if not any([args.spf, args.dmarc, args.dkim]):
         print("No check option provided, use -spf, -dmarc, or -dkim flags.")
         parser.print_help()
         sys.exit(1)
-    
+
+    output_data = {}
+
     if args.spf:
-        check_spf(args.domain)
-    
+        spf_data = check_spf(args.domain, args.output)
+        if args.output == 'json':
+            output_data['spf'] = spf_data
+
     if args.dmarc:
-        check_dmarc(args.domain)
-    
+        dmarc_data = check_dmarc(args.domain, args.output)
+        if args.output == 'json':
+            output_data['dmarc'] = dmarc_data
+
     if args.dkim:
-        check_dkim(args.domain, args.selector)
+        if args.selector is None:
+            print(f"{Style.BRIGHT}{Fore.YELLOW}[!] No DKIM selector provided. Proceeding with default selector 'default'{Style.RESET_ALL}")
+            args.selector = 'default'
+        dkim_data = check_dkim(args.domain, args.selector, args.output)
+        if args.output == 'json':
+            output_data['dkim'] = dkim_data
+
+    if args.output == 'json':
+        with open(args.outfile, 'w') as json_file:
+            json.dump(output_data, json_file, indent=4)
+        print(f"JSON output written to {args.outfile}")
 
 if __name__ == "__main__":
     main()
