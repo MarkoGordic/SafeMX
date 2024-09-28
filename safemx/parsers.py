@@ -149,7 +149,6 @@ def parse_spf_record(spf_record, output_format='console'):
 
     return spf_data
 
-
 def parse_dmarc_record(dmarc_record, output_format='console'):
     dmarc_parts = dmarc_record.split(';')
     dmarc_data = {
@@ -158,7 +157,8 @@ def parse_dmarc_record(dmarc_record, output_format='console'):
         'notes': []
     }
 
-    expected_fields = ['v', 'p', 'adkim', 'aspf', 'sp', 'fo', 'ruf', 'rua', 'rf', 'pct', 'ri']
+    required_fields = ['v', 'p']
+    optional_fields = ['adkim', 'aspf', 'sp', 'fo', 'ruf', 'rua', 'rf', 'pct', 'ri']
 
     for part in dmarc_parts:
         key_value = part.strip().split('=')
@@ -207,15 +207,21 @@ def parse_dmarc_record(dmarc_record, output_format='console'):
                     print(f"    {Style.BRIGHT}{Fore.MAGENTA}Reporting Interval Detected:{Style.RESET_ALL} {key}={value}")
                     print(f"    [i] Reporting interval is {value} seconds (default is 86400 seconds = 1 day).")
 
-    for field in expected_fields:
+    for field in required_fields:
         if field not in dmarc_data['fields']:
             dmarc_data['fields'][field] = 'missing'
             if output_format == 'console':
-                print(f"    {Style.BRIGHT}{Fore.RED}Missing Field Detected:{Style.RESET_ALL} {field}='missing'")
+                print(f"    {Style.BRIGHT}{Fore.RED}Missing Required Field Detected:{Style.RESET_ALL} {field}='missing'")
+
+    for field in optional_fields:
+        if field not in dmarc_data['fields']:
+            dmarc_data['fields'][field] = 'none'
+            if output_format == 'console':
+                print(f"    {Style.BRIGHT}{Fore.YELLOW}Optional Field Not Present:{Style.RESET_ALL} {field}='none'")
 
     if output_format == 'console':
         print(f"{Style.BRIGHT}{Fore.CYAN}DMARC Record Analysis Complete.{Style.RESET_ALL}")
-    
+
     return dmarc_data
 
 def parse_dkim_record(dkim_record, output_format='console'):
@@ -225,7 +231,8 @@ def parse_dkim_record(dkim_record, output_format='console'):
         'fields': {},
     }
 
-    expected_fields = ['v', 'p', 'k']
+    required_fields = ['v', 'p']
+    optional_fields = ['k', 's']
 
     for part in dkim_parts:
         key_value = part.strip().split('=')
@@ -244,11 +251,17 @@ def parse_dkim_record(dkim_record, output_format='console'):
                     print(f"    {Style.BRIGHT}{Fore.BLUE}Other Mechanism Detected:{Style.RESET_ALL} {key}={value}")
                     print(f"        [i] {dkim_tag_explanations.get(key, 'Unknown DKIM mechanism')}")
 
-    for field in expected_fields:
+    for field in required_fields:
         if field not in dkim_data['fields']:
             dkim_data['fields'][field] = 'missing'
             if output_format == 'console':
-                print(f"    {Style.BRIGHT}{Fore.RED}Missing Field Detected:{Style.RESET_ALL} {field}='missing'")
+                print(f"    {Style.BRIGHT}{Fore.RED}Missing Required Field Detected:{Style.RESET_ALL} {field}='missing'")
+
+    for field in optional_fields:
+        if field not in dkim_data['fields']:
+            dkim_data['fields'][field] = 'none'
+            if output_format == 'console':
+                print(f"    {Style.BRIGHT}{Fore.YELLOW}Optional Field Not Present:{Style.RESET_ALL} {field}='none'")
 
     if output_format == 'console':
         print(f"{Style.BRIGHT}{Fore.CYAN}DKIM Record Analysis Complete.{Style.RESET_ALL}")
