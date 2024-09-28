@@ -5,27 +5,24 @@ def parse_spf_record(spf_record, output_format='console'):
     spf_parts = spf_record.split()
     spf_data = {
         'record': spf_record,
-        'version': None,
+        'version': 'missing',
         'mechanisms': [],
-        'warnings': [],
         'notes': []
     }
 
-    version_detected = False
     ip_detected = False
     include_detected = False
     all_detected = False
     redirect_detected = False
 
     if any(c.isupper() for c in spf_record):
-        warning_msg = "SPF record contains uppercase characters, which is invalid."
-        spf_data['warnings'].append(warning_msg)
+        note_msg = "SPF record contains uppercase characters, which is invalid."
+        spf_data['notes'].append(note_msg)
         if output_format == 'console':
-            print(f"{Fore.RED}[!] {warning_msg}{Style.RESET_ALL}")
+            print(f"{Fore.RED}[!] {note_msg}{Style.RESET_ALL}")
 
     for part in spf_parts:
         if part.startswith("v="):
-            version_detected = True
             spf_data['version'] = part
             if output_format == 'console':
                 print(f"    {Style.BRIGHT}{Fore.CYAN}Version Detected:{Style.RESET_ALL} {part}")
@@ -63,21 +60,15 @@ def parse_spf_record(spf_record, output_format='console'):
                 print(f"    {Style.BRIGHT}{Fore.BLUE}Other Mechanism Detected:{Style.RESET_ALL} {part}")
                 print(f"        [i] {spf_tag_explanations.get(part.split(':')[0], 'Unknown mechanism')}")
 
-    if not version_detected:
-        warning_msg = "SPF version not detected. This SPF record may be invalid without 'v=spf1'."
-        spf_data['warnings'].append(warning_msg)
-        if output_format == 'console':
-            print(f"{Fore.RED}[!] {warning_msg}{Style.RESET_ALL}")
-    
     if not ip_detected and not include_detected:
-        warning_msg = "No IP or Include mechanisms detected. Your SPF record may not properly authorize any servers."
-        spf_data['warnings'].append(warning_msg)
+        note_msg = "No IP or Include mechanisms detected. Your SPF record may not properly authorize any servers."
+        spf_data['mechanisms'].append({'type': 'ip', 'value': 'missing'})
         if output_format == 'console':
-            print(f"{Fore.RED}[!] {warning_msg}{Style.RESET_ALL}")
+            print(f"{Fore.RED}[!] {note_msg}{Style.RESET_ALL}")
 
     if not all_detected and not redirect_detected:
         note_msg = "No 'all' or 'redirect=' mechanism detected. It's recommended to end SPF records with one of these."
-        spf_data['notes'].append(note_msg)
+        spf_data['mechanisms'].append({'type': 'all', 'value': 'missing'})
         if output_format == 'console':
             print(f"{Fore.YELLOW}[!] {note_msg}{Style.RESET_ALL}")
 
@@ -91,9 +82,10 @@ def parse_dmarc_record(dmarc_record, output_format='console'):
     dmarc_data = {
         'record': dmarc_record,
         'fields': {},
-        'warnings': [],
         'notes': []
     }
+
+    expected_fields = ['v', 'p', 'adkim', 'aspf', 'sp', 'fo', 'ruf', 'rua', 'rf', 'pct', 'ri']
 
     for part in dmarc_parts:
         key_value = part.strip().split('=')
@@ -142,6 +134,12 @@ def parse_dmarc_record(dmarc_record, output_format='console'):
                     print(f"    {Style.BRIGHT}{Fore.MAGENTA}Reporting Interval Detected:{Style.RESET_ALL} {key}={value}")
                     print(f"    [i] Reporting interval is {value} seconds (default is 86400 seconds = 1 day).")
 
+    for field in expected_fields:
+        if field not in dmarc_data['fields']:
+            dmarc_data['fields'][field] = 'missing'
+            if output_format == 'console':
+                print(f"    {Style.BRIGHT}{Fore.RED}Missing Field Detected:{Style.RESET_ALL} {field}='missing'")
+
     if output_format == 'console':
         print(f"{Style.BRIGHT}{Fore.CYAN}DMARC Record Analysis Complete.{Style.RESET_ALL}")
     
@@ -152,9 +150,9 @@ def parse_dkim_record(dkim_record, output_format='console'):
     dkim_data = {
         'record': dkim_record,
         'fields': {},
-        'warnings': [],
-        'notes': []
     }
+
+    expected_fields = ['v', 'p', 'k']
 
     for part in dkim_parts:
         key_value = part.strip().split('=')
@@ -165,13 +163,19 @@ def parse_dkim_record(dkim_record, output_format='console'):
             if output_format == 'console':
                 if key == 'v':
                     print(f"    {Style.BRIGHT}{Fore.CYAN}Version Detected:{Style.RESET_ALL} {key}={value}")
-                    print(f"        [i] {dkim_tag_explanations['v']}")
+                    print(f"        [i] {dkim_tag_explanations.get('v', 'Unknown version')}")
                 elif key == 'p':
                     print(f"    {Style.BRIGHT}{Fore.GREEN}Public Key Detected:{Style.RESET_ALL} {key}={value}")
-                    print(f"        [i] {dkim_tag_explanations['p']}")
+                    print(f"        [i] {dkim_tag_explanations.get('p', 'Unknown public key')}")
                 else:
                     print(f"    {Style.BRIGHT}{Fore.BLUE}Other Mechanism Detected:{Style.RESET_ALL} {key}={value}")
-                    print(f"        [i] Unknown or unhandled DKIM mechanism.")
+                    print(f"        [i] {dkim_tag_explanations.get(key, 'Unknown DKIM mechanism')}")
+
+    for field in expected_fields:
+        if field not in dkim_data['fields']:
+            dkim_data['fields'][field] = 'missing'
+            if output_format == 'console':
+                print(f"    {Style.BRIGHT}{Fore.RED}Missing Field Detected:{Style.RESET_ALL} {field}='missing'")
 
     if output_format == 'console':
         print(f"{Style.BRIGHT}{Fore.CYAN}DKIM Record Analysis Complete.{Style.RESET_ALL}")
