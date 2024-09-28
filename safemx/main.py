@@ -1,6 +1,6 @@
 import argparse
 import sys
-from checkers import check_spf, check_dmarc, check_dkim
+from safemx.checkers import check_spf, check_dmarc, check_dkim
 from colorama import Fore, Style, init
 import json
 

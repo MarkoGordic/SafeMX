@@ -1,5 +1,5 @@
 from colorama import Fore, Style, init
-from explanations import spf_tag_explanations, dmarc_tag_explanations, dkim_tag_explanations
+from safemx.explanations import spf_tag_explanations, dmarc_tag_explanations, dkim_tag_explanations
 
 def parse_spf_record(spf_record, output_format='console'):
     spf_parts = spf_record.split()
