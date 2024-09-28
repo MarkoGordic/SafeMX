@@ -4,14 +4,17 @@ spf_tag_explanations = {
     'ip6': 'This IP address is authorized to send emails on behalf of the domain.',
     'include': 'The domain included is authorized to send emails on behalf of this domain. SPF checks for the included domain will also be performed.',
     'redirect': 'This redirects SPF checks to another domain, as if its SPF record is being used here.',
+    'exp': 'This allows for a custom explanation if the SPF check fails, providing further information.',
     'all': {
         '-all': 'Any server not explicitly allowed will be rejected.',
         '~all': 'Emails from unauthorized servers will be marked as suspicious.',
         '?all': 'No definitive action will be taken for non-matching servers.',
         '+all': '[!] Warning: This allows emails from any server and is usually a misconfiguration.'
     },
-    'mx': 'Authorizes the domain’s MX servers to send emails on behalf of this domain.',
-    'a': 'Authorizes the domain’s A or AAAA records to send emails on behalf of this domain.'
+    'a': 'Authorizes the domain\'s A or AAAA records to send emails on behalf of this domain.',
+    'mx': 'Authorizes the domain\'s MX servers to send emails on behalf of this domain.',
+    'ptr': 'Matches if the client IP has a PTR record pointing to a domain name ending in the specified domain.',
+    'exists': 'Matches if a DNS lookup on the specified domain returns a result.'
 }
 
 dmarc_tag_explanations = {

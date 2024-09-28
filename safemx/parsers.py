@@ -7,6 +7,7 @@ def parse_spf_record(spf_record, output_format='console'):
         'record': spf_record,
         'version': 'missing',
         'mechanisms': [],
+        'modifiers': [],
         'notes': []
     }
 
@@ -14,6 +15,11 @@ def parse_spf_record(spf_record, output_format='console'):
     include_detected = False
     all_detected = False
     redirect_detected = False
+    exp_detected = False
+    a_detected = False
+    mx_detected = False
+    ptr_detected = False
+    exists_detected = False
 
     if any(c.isupper() for c in spf_record):
         note_msg = "SPF record contains uppercase characters, which is invalid."
@@ -33,6 +39,46 @@ def parse_spf_record(spf_record, output_format='console'):
             if output_format == 'console':
                 print(f"    {Style.BRIGHT}{Fore.GREEN}IP Address Detected:{Style.RESET_ALL} {part}")
                 print(f"        [i] {spf_tag_explanations[part.split(':')[0]]}")
+        elif part == "a" or part.startswith("a:") or part.startswith("a/"):
+            a_detected = True
+            if ":" in part:
+                domain = part.split(":")[1].split("/")[0]
+                if "/" in part:
+                    prefix_length = part.split("/")[1]
+                    spf_data['mechanisms'].append({'type': 'a', 'domain': domain, 'prefix_length': prefix_length, 'value': part})
+                    if output_format == 'console':
+                        print(f"    {Style.BRIGHT}{Fore.BLUE}'a' Mechanism with Domain and Prefix Detected:{Style.RESET_ALL} {part}")
+                        print(f"        Domain: {domain}, Prefix Length: {prefix_length}")
+                else:
+                    spf_data['mechanisms'].append({'type': 'a', 'domain': domain, 'value': part})
+                    if output_format == 'console':
+                        print(f"    {Style.BRIGHT}{Fore.BLUE}'a' Mechanism with Domain Detected:{Style.RESET_ALL} {part}")
+                        print(f"        Domain: {domain}")
+            elif "/" in part:
+                prefix_length = part.split("/")[1]
+                spf_data['mechanisms'].append({'type': 'a', 'prefix_length': prefix_length, 'value': part})
+                if output_format == 'console':
+                    print(f"    {Style.BRIGHT}{Fore.BLUE}'a' Mechanism with Prefix Detected:{Style.RESET_ALL} {part}")
+                    print(f"        Prefix Length: {prefix_length}")
+            else:
+                spf_data['mechanisms'].append({'type': 'a', 'value': part})
+                if output_format == 'console':
+                    print(f"    {Style.BRIGHT}{Fore.BLUE}'a' Mechanism Detected:{Style.RESET_ALL} {part}")
+        elif part.startswith("mx"):
+            mx_detected = True
+            spf_data['mechanisms'].append({'type': 'mx', 'value': part})
+            if output_format == 'console':
+                print(f"    {Style.BRIGHT}{Fore.BLUE}'mx' Mechanism Detected:{Style.RESET_ALL} {part}")
+        elif part.startswith("ptr"):
+            ptr_detected = True
+            spf_data['mechanisms'].append({'type': 'ptr', 'value': part})
+            if output_format == 'console':
+                print(f"    {Style.BRIGHT}{Fore.BLUE}'ptr' Mechanism Detected:{Style.RESET_ALL} {part}")
+        elif part.startswith("exists:"):
+            exists_detected = True
+            spf_data['mechanisms'].append({'type': 'exists', 'value': part})
+            if output_format == 'console':
+                print(f"    {Style.BRIGHT}{Fore.BLUE}'exists' Mechanism Detected:{Style.RESET_ALL} {part}")
         elif part.startswith("include:") or part.startswith("+include:"):
             include_detected = True
             domain = part.split(":", 1)[1]
@@ -43,10 +89,17 @@ def parse_spf_record(spf_record, output_format='console'):
         elif part.startswith("redirect="):
             redirect_detected = True
             redirect_domain = part.split("=", 1)[1]
-            spf_data['mechanisms'].append({'type': 'redirect', 'value': part, 'domain': redirect_domain})
+            spf_data['modifiers'].append({'type': 'redirect', 'value': part, 'domain': redirect_domain})
             if output_format == 'console':
-                print(f"    {Style.BRIGHT}{Fore.YELLOW}Redirect Detected:{Style.RESET_ALL} {part}")
+                print(f"    {Style.BRIGHT}{Fore.YELLOW}Redirect Modifier Detected:{Style.RESET_ALL} {part}")
                 print(f"        [i] {spf_tag_explanations['redirect']}")
+        elif part.startswith("exp="):
+            exp_detected = True
+            exp_domain = part.split("=", 1)[1]
+            spf_data['modifiers'].append({'type': 'exp', 'value': part, 'domain': exp_domain})
+            if output_format == 'console':
+                print(f"    {Style.BRIGHT}{Fore.YELLOW}Explanation Modifier Detected:{Style.RESET_ALL} {part}")
+                print(f"        [i] {spf_tag_explanations['exp']}")
         elif part in ["-all", "~all", "?all", "+all"]:
             all_detected = True
             spf_data['mechanisms'].append({'type': 'all', 'value': part})
@@ -60,22 +113,42 @@ def parse_spf_record(spf_record, output_format='console'):
                 print(f"    {Style.BRIGHT}{Fore.BLUE}Other Mechanism Detected:{Style.RESET_ALL} {part}")
                 print(f"        [i] {spf_tag_explanations.get(part.split(':')[0], 'Unknown mechanism')}")
 
-    if not ip_detected and not include_detected:
-        note_msg = "No IP or Include mechanisms detected. Your SPF record may not properly authorize any servers."
+    if not ip_detected:
         spf_data['mechanisms'].append({'type': 'ip', 'value': 'missing'})
         if output_format == 'console':
-            print(f"{Fore.RED}[!] {note_msg}{Style.RESET_ALL}")
+            print(f"{Fore.RED}[!] Missing IP mechanism (ip4: or ip6:). Add an IP address mechanism.{Style.RESET_ALL}")
+
+    if not a_detected:
+        spf_data['mechanisms'].append({'type': 'a', 'value': 'none'})
+
+    if not mx_detected:
+        spf_data['mechanisms'].append({'type': 'mx', 'value': 'none'})
+
+    if not ptr_detected:
+        spf_data['mechanisms'].append({'type': 'ptr', 'value': 'none'})
+
+    if not exists_detected:
+        spf_data['mechanisms'].append({'type': 'exists', 'value': 'none'})
+
+    if not include_detected:
+        spf_data['mechanisms'].append({'type': 'include', 'value': 'none'})
 
     if not all_detected and not redirect_detected:
-        note_msg = "No 'all' or 'redirect=' mechanism detected. It's recommended to end SPF records with one of these."
         spf_data['mechanisms'].append({'type': 'all', 'value': 'missing'})
         if output_format == 'console':
-            print(f"{Fore.YELLOW}[!] {note_msg}{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}[!] Missing 'all' or 'redirect=' mechanism. Add one to complete the SPF record.{Style.RESET_ALL}")
+
+    if not redirect_detected:
+        spf_data['modifiers'].append({'type': 'redirect', 'value': 'none'})
+
+    if not exp_detected:
+        spf_data['modifiers'].append({'type': 'exp', 'value': 'none'})
 
     if output_format == 'console':
         print(f"{Style.BRIGHT}{Fore.CYAN}SPF Record Analysis Complete.{Style.RESET_ALL}")
-    
+
     return spf_data
+
 
 def parse_dmarc_record(dmarc_record, output_format='console'):
     dmarc_parts = dmarc_record.split(';')
